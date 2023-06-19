@@ -170,7 +170,10 @@ def createLabel_75120 (text_label):
     img.paste(logo_eac, (770,455))
     img.paste(logo_cz, (710,517))
     
-    img.save(text_label[12]+".pdf", "PDF", append=False, resolution=203, quality=100)
+    if os.path.exists("label_75_120.pdf"):
+        img.save("label_75_120.pdf", "PDF", append=True, resolution=203, quality=100)
+    else:
+        img.save("label_75_120.pdf", "PDF", append=False, resolution=203, quality=100)
 
 def createLabel_75120_copy (text_label):
     lineh1 = (7,100,953,100)
