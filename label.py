@@ -12,8 +12,8 @@ import datetime
 
 path = "/usr/local/etc/label/work_dir/"
 
-def openDir (path):
-    for dirs,folder,files in os.walk(path):
+def openDir (path_dir):
+    for dirs,folder,files in os.walk(path_dir):
         print("Select dir: ", dirs)
         print("In dirs: ", folder)
         print("Files: ", files)
@@ -22,7 +22,7 @@ def openDir (path):
         for file1 in files:
             ext_split = os.path.splitext(file1)
             if ext_split[1] == ".csv":     #если расширение CSV открываем файл и считываем GTIN
-                f = open(path+file1, 'r')
+                f = open(path_dir+file1, 'r')
                 marka = f.read()
                 print ("marka = ", marka)
                 gtin = marka[2:16]
@@ -32,7 +32,7 @@ def openDir (path):
                     ext_split2 = os.path.splitext(file2)
                     #print ("Extens: ",ext_split2)
                     if ext_split2[1] == ".zip":
-                        z = zipfile.ZipFile(path+file2, "r")
+                        z = zipfile.ZipFile(path_dir+file2, "r")
                         for fi in z.namelist():
                             print("Файлы архива: ", fi)
                             if fi != "attributes.json":
@@ -49,12 +49,23 @@ def openDir (path):
                             attr.append(file_json["gtinProductAttributes"][gtin]["model"])
                             attr.append(file_json["gtinProductAttributes"][gtin]["productTypeDesc"])
                             attr.append(file_json["gtinProductAttributes"][gtin]["color"])
-                            attr.append(file_json["gtinProductAttributes"][gtin]["productSize"])
+                            size_read = file_json["gtinProductAttributes"][gtin]["productSize"]
+                            if len(size_read) > 2:
+                                size_sep = size_read.split("-")
+                                attr.append(size_sep[0])
+                                double_print_size = True
+                            else:
+                                attr.append(size_read)
+                                double_print_size = False
+                            #attr.append(file_json["gtinProductAttributes"][gtin]["productSize"])
                             attr.append(file_json["gtinProductAttributes"][gtin]["materialUpper"])
                             attr.append(file_json["gtinProductAttributes"][gtin]["materialLining"])
                             attr.append(file_json["gtinProductAttributes"][gtin]["materialDown"])
                             attr.append(file_json["gtinProductAttributes"][gtin]["brand"])
-                            country_split = file_json["gtinProductAttributes"][gtin]["country"].split()
+                            try:
+                                country_split = file_json["gtinProductAttributes"][gtin]["country"].split()
+                            except Exception:
+                                country_split = ("--", "--")
                             attr.append(country_split[0])
                             attr.append(file_json["gtinProductAttributes"][gtin]["ncCreateDate"])
                             epsinzip = z.open(eps_file, mode="r")
@@ -62,8 +73,39 @@ def openDir (path):
                             attr.append(gtin_json)
                             attr.append(marka)
                             createLabel_75120(attr)
+                            if double_print_size:
+                                attr[4] = size_sep[1]
+                                createLabel_75120(attr)
+                            z.close()
+                            break
                         z.close()
 
+def CleanWorkDir(path_to_ftp):
+    destination_path = "old_dir/"
+    for dirs,folder,files in os.walk(path_to_ftp):
+        print("Select dir: ", dirs)
+        print("In dirs: ", folder)
+        print("Files: ", files)
+        print("\n")
+        #перебераем все файлы в директории
+        date_now = datetime.datetime.now()
+        os.mkdir(destination_path + str(date_now))
+        for file1 in files:
+            os.rename(path_to_ftp + file1, destination_path + str(date_now) + "/" + file1)
+
+def ScanDirFTP(path_to_ftp):
+    destination_path = "work_dir/"
+    retu = 0
+    for dirs,folder,files in os.walk(path_to_ftp):
+        print("Select dir: ", dirs)
+        print("In dirs: ", folder)
+        print("Files: ", files)
+        print("\n")
+        #перебераем все файлы в директории
+        for file1 in files:
+            os.rename(path_to_ftp + file1, destination_path + file1)
+            retu = 1
+    return retu
 
 def createLabel_6040 (text_label):
     lineh1 = (5,80,475,80)
@@ -175,59 +217,13 @@ def createLabel_75120 (text_label):
     else:
         img.save("label_75_120.pdf", "PDF", append=False, resolution=203, quality=100)
 
-def createLabel_75120_copy (text_label):
-    lineh1 = (7,100,953,100)
-    lineh2 = (7,160,680,160)
-    lineh3 = (680,100,680,593)
-    print ("CREATE LABEL WITH gtin= ", text_label[12])
-    img = Image.new("RGB", (960,600), "white") # для этикетки 58*40
-    dm = Image.open(text_label[11])
-    logo = Image.open("logo_bw_150.png")
-    print (dm.size)
-    dm.load(scale=5)
-    #img.paste(dm, (700,150))
-    font = ImageFont.truetype("NotoMono-Regular.ttf", size=60)
-    font_small = ImageFont.truetype("NotoMono-Regular.ttf", size=30)
-    font_model = ImageFont.truetype("NotoMono-Regular.ttf", size=40)
-    font_detail = ImageFont.truetype("NotoMono-Regular.ttf", size=20)
-    idraw = ImageDraw.Draw(img)
-    idraw.rectangle((7, 7, 953, 593), fill="white", outline="black", width=3)
-    idraw.text((50, 15), text_label[0], font=font, fill="#000000")
-    idraw.line(lineh1, fill="black", width=3)
-    idraw.text((30, 105), text_label[1], font=font_model, fill="#000000")
-    idraw.line(lineh2, fill="black", width=3)
-    idraw.line(lineh3, fill="black", width=3)
-
-    idraw.text((20, 165), "ПРОДУКЦИЯ", font=font_detail, fill="#000000")
-    idraw.text((20, 190), text_label[2], font=font_small, fill="#000000")
-    idraw.text((280, 165), "ЦВЕТ", font=font_detail, fill="#000000")
-    idraw.text((280, 190), text_label[3], font=font_small, fill="#000000")
-    idraw.text((500, 165), "РАЗМЕР", font=font_detail, fill="#000000")
-    idraw.text((500, 190), text_label[4], font=font_small, fill="#000000")
-
-    idraw.text((20, 245), "ВЕРХ", font=font_detail, fill="#000000")
-    idraw.text((20, 275), text_label[5], font=font_small, fill="#000000")
-    idraw.text((280, 245), "ПОДКЛАДКА", font=font_detail, fill="#000000")
-    idraw.text((280, 275), text_label[6], font=font_small, fill="#000000")
-    idraw.text((500, 245), "ПОДОШВА", font=font_detail, fill="#000000")
-    idraw.text((500, 275), text_label[7], font=font_small, fill="#000000")
-
-    idraw.text((20, 325), "ПРОИЗВОДИТЕЛЬ", font=font_detail, fill="#000000")
-    idraw.text((20, 355), text_label[8], font=font_small, fill="#000000")
-    idraw.text((280, 325), "СТРАНА", font=font_detail, fill="#000000")
-    idraw.text((280, 355), text_label[9], font=font_small, fill="#000000")
-    idraw.text((500, 325), "ДАТА", font=font_detail, fill="#000000")
-    dt = datetime.datetime.fromtimestamp(text_label[10]/1000)
-    date_json = dt.strftime('%d-%m-%Y')
-    idraw.text((500, 355), date_json, font=font_small, fill="#000000")
-
-    img.paste(dm, (700,110))
-    img.paste(logo, (700,360))
-    
-    img.save(text_label[12]+".pdf", "PDF", append=False, resolution=203, quality=100)
-
 def main():
-    openDir(path)
+#    openDir(path)
+    if ScanDirFTP("/home/admin/temp/ftp/"):
+        openDir(path)
+        CleanWorkDir(path)
+    else:
+        print ("нет файлов в каталоге FTP")
 
 if __name__ == "__main__":
     main()
